@@ -45,6 +45,7 @@ source("scripts/function04_use-modelsummary.R")
 source("scripts/function05_plot-randoms.R")
 
 # Load the FATHER-LAGGED-VDEM source country data ------------------------------
+
 dfa_fuzzy <- read_csv(
    "data_cleaned/data03a_fuzzy.csv",
    col_types = cols(
@@ -105,7 +106,7 @@ fita_fuzzy_base <- brm(
 # View the results
 summary(fita_fuzzy_base, prob = .9)
 
-# Quick AME (use median value for a more robust result)
+# Quick AME (ams using median here for a more robust result since I'm sampling)
 point_interval(calc_ame(fita_fuzzy_base,
                         x_var = "fuzzy_vdem_corrupt_z",
                         prop = .01)) # change to 1 for final analysis
@@ -128,7 +129,7 @@ fita_fuzzy_dem <- brm(
 # View the results
 summary(fita_fuzzy_dem, prob = .9)
 
-# Quick AME
+# Quick AME (ams using median here for a more robust result since I'm sampling)
 point_interval(calc_ame(fita_fuzzy_dem,
          x_var = "fuzzy_vdem_corrupt_z",
          prop = .01)) # change to 1 for final analysis
@@ -156,7 +157,7 @@ fita_fuzzy_full <- brm(
 # View the results
 summary(fita_fuzzy_full, prob = .9)
 
-# Quick AME
+# Quick AME (ams using median here for a more robust result since I'm sampling)
 point_interval(calc_ame(fita_fuzzy_full,
                         x_var = "fuzzy_vdem_corrupt_z",
                         prop = .1)) # change to 1 for final analysis
@@ -221,7 +222,7 @@ fita_fuzzy_full_country <- brm(
    file = "results/fita_fuzzy_full_country.RDS"
 )
 
-# View the results
+# Quick AME (ams using median here for a more robust result since I'm sampling)
 summary(fita_fuzzy_full_country, prob = .9)
 
 # Quick AME
@@ -264,46 +265,7 @@ modelsummary(
    statistic = "conf.int", 
    coef_map = list_var_names, 
    fmt = 2, 
-   output = "default"
+   output = "gt"
    
 )
-
-# if using texreg instead
-# screenreg(
-#    lista_fuzzy,
-#    include.aic = FALSE,
-#    include.bic = FALSE,
-#    include.loglik = FALSE,
-#    include.deviance = FALSE,
-#    include.loo.ic = FALSE,
-#    include.waic = FALSE,
-#    include.rsquared = FALSE, 
-#    include.sd.values = FALSE,
-#    use.HDI = FALSE, # to mimic what brms does
-#    custom.header = list("DV: Voter Turnout" = 1:4),
-#    custom.coef.names = list_var_names
-# )
-
-# LaTeX Code
-# texreg(
-#    lista_fuzzy,
-#    include.aic = FALSE,
-#    include.bic = FALSE,
-#    include.loglik = FALSE,
-#    include.deviance = FALSE,
-#    include.loo.ic = FALSE,
-#    include.waic = FALSE,
-#    include.rsquared = FALSE,
-#    include.sd.values = FALSE,
-#    custom.header = list("DV: Voter Turnout" = 1:4),
-#    custom.coef.names = list_var_names,
-#    caption = "Fuzzy Matched Data",
-#    # LaTeX formatting stuff
-#    caption.above = TRUE,
-#    custom.note = "\\item %stars. \\item Results are posterior averages of the paramter of interest. \\item Values in brackets are 95\\% intervals.",
-#    booktabs = TRUE,
-#    fontsize = "footnotesize",
-#    threeparttable = TRUE, 
-#    file = "results/taba_fuzzy.tex"
-# )
 
