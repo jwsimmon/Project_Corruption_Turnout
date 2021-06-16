@@ -26,7 +26,7 @@ p_load(
    here
 )
 
-# Set graph themes
+# Themes for figures
 ggthemr("fresh")
 theme_set(theme_minimal())
 
@@ -44,7 +44,7 @@ source("scripts/function04_use-modelsummary.R")
 # Simple function to plot random effects
 source("scripts/function05_plot-randoms.R")
 
-# Load the MOTHER-FUZZYVDEM source country data ------------------------------
+# Load the MOTHER-FUZZY-VDEM source country data ------------------------------
 
 dfb_fuzzy <- read_csv(
    "data_cleaned/data03b_fuzzy.csv",
@@ -85,6 +85,33 @@ list_var_names <- c('b_Intercept' = 'Intercept',
                     "b_fuzzy_polity2_z" = "Regime Type", 
                     "b_fuzzy_ln_mad_gdpcap_z" = "Per Capita GDP")
 
+# Set the priors for the models -------------------------------------------
+
+# Set priors for the non-MLM models
+# These are based on Gelman, Hill, and Vehtari see: 
+# https://mc-stan.org/rstanarm/articles/priors.html#default-weakly-informative-prior-distributions-1
+prior_base <- c(
+   set_prior("normal(0, 2.5)", class = "b"),
+   set_prior("normal(0, 2.5)", class = "Intercept")
+)
+
+# Set priors for the MLM models
+# See 
+# https://mc-stan.org/rstanarm/articles/priors.html#default-weakly-informative-prior-distributions-1
+prior_mlm <- c(
+   set_prior("normal(0, 2.5)", class = "b"),
+   set_prior("normal(0, 2.5)", class = "Intercept"), 
+   set_prior("exponential(1)", class = "sd")
+)
+
+# Plot the priors 
+
+# Normal(0, 2.5)
+ggdistribution(dnorm, seq(-8, 8, 0.1), mean = 0, sd = 2.5)
+# Exponential(1)
+ggdistribution(dexp, seq(0, 4, 0.1), rate = 1)
+
+
 #################################################################
 ##                       BASELINE MODELS                       ##
 #################################################################
@@ -99,12 +126,14 @@ fitb_fuzzy_base <- brm(
    chains = 4,
    cores = 1, 
    seed = 42,
+   prior = prior_base,
    backend = "cmdstanr",
    file = "results/fitb_fuzzy_base.RDS"
 )
 
 # View the results
 summary(fitb_fuzzy_base, prob = .9)
+prior_summary(fitb_fuzzy_base)
 
 # Quick AME (am using median here for a more robust result since I'm sampling)
 point_interval(calc_ame(fitb_fuzzy_base,
@@ -112,7 +141,7 @@ point_interval(calc_ame(fitb_fuzzy_base,
                         prop = .01)) # change to 1 for final analysis
 
 # Predicted probabilities 
-conditional_effects(fitb_fuzzy_base, effects = "fuzzy_vdem_corrupt_z")
+conditional_effects(fitb_fuzzy_base)
 
 # FUZZY VDEM: Democracy control --------------------
 
@@ -123,11 +152,13 @@ fitb_fuzzy_dem <- brm(
    chains = 4,
    cores = 1, 
    seed = 42,
+   prior = prior_base,
    backend = "cmdstanr",
    file = "results/fitb_fuzzy_dem.RDS"
 )
 # View the results
 summary(fitb_fuzzy_dem, prob = .9)
+prior_summary(fitb_fuzzy_dem, all = FALSE)
 
 # Quick AME (ams using median here for a more robust result since I'm sampling)
 point_interval(calc_ame(fitb_fuzzy_dem,
@@ -150,12 +181,14 @@ fitb_fuzzy_full <- brm(
    chains = 4,
    cores = 1,
    seed = 42,
+   prior = prior_base,
    backend = "cmdstanr",
    file = "results/fitb_fuzzy_full.RDS"
 )
 
 # View the results
 summary(fitb_fuzzy_full, prob = .9)
+prior_summary(fitb_fuzzy_full, all = FALSE)
 
 # Quick AME (ams using median here for a more robust result since I'm sampling)
 point_interval(calc_ame(fitb_fuzzy_full,
@@ -178,12 +211,14 @@ fitb_fuzzy_dem_country <- brm(
    chains = 4,
    cores = 2, 
    seed = 42,
+   prior = prior_mlm,
    backend = "cmdstanr",
    file = "results/fitb_fuzzy_dem_country.RDS"
 )
 
 # View the results
 summary(fitb_fuzzy_dem_country, prob = .9)
+prior_summary(fitb_fuzzy_dem_country, all = FALSE)
 
 # Quick AME
 point_interval(calc_ame(fitb_fuzzy_dem_country,
@@ -212,24 +247,25 @@ plot_randoms(df = reb_fuzzy_dem_country) +
 
 fitb_fuzzy_full_country <- brm(
    voted_re ~ fuzzy_vdem_corrupt_z + fuzzy_polity2_z + 
-      fuzzy_ln_mad_gdpcap_z +  (1 | cowcode),
+      fuzzy_ln_mad_gdpcap_z + (1 | cowcode),
    data = dfb_fuzzy,
    family = bernoulli(link = "logit"),
    chains = 4,
    cores = 4, 
    seed = 42,
+   prior = prior_mlm,
    backend = "cmdstanr",
    file = "results/fitb_fuzzy_full_country.RDS"
 )
 
 # Quick AME (ams using median here for a more robust result since I'm sampling)
 summary(fitb_fuzzy_full_country, prob = .9)
+prior_summary(fitb_fuzzy_full_country, all = FALSE)
 
 # Quick AME
-print(quantile(calc_ame(fitb_fuzzy_full_country,
-                  x_var = "fuzzy_vdem_corrupt_z",
-                  prop = .01)), 
-      digits = 1)
+point_interval(calc_ame(fitb_fuzzy_full_country,
+                        x_var = "fuzzy_vdem_corrupt_z",
+                        prop = .01))
 
 # Predicted probabilities
 conditional_effects(fitb_fuzzy_full_country,
@@ -265,7 +301,24 @@ modelsummary(
    statistic = "conf.int", 
    coef_map = list_var_names, 
    fmt = 2, 
-   output = "gt"
+   output = "default"
    
 )
 
+
+# DIAGNOSTICS -------------------------------------------------------------
+
+loob_fuzzy_base <- loo(fitb_fuzzy_base)
+loob_fuzzy_dem <- loo(fitb_fuzzy_dem, cores = 2)
+loob_fuzzy_full <- loo(fitb_fuzzy_full, cores = 2)
+loob_fuzzy_dem_country <- loo(fitb_fuzzy_dem_country, cores = 2)
+loob_fuzzy_full_country <- loo(fitb_fuzzy_full_country, cores = 2)
+
+# Compare the model fits
+loo_compare(
+   loob_fuzzy_base,
+   loob_fuzzy_dem,
+   loob_fuzzy_full,
+   loob_fuzzy_dem_country,
+   loob_fuzzy_full_country
+) 
